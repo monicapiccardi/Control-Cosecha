@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2e7d32">
+  <title>🌾 Control de Cosecha</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #e8f5e9;
+      color: #1a1a1a;
+      font-size: 18px;
+      line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; min-height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ── HEADER ── */
+    .hdr {
+      background: #2e7d32;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    }
+    .hdr-info { flex: 1; min-width: 0; }
+    .hdr-title { font-size: 20px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hdr-sub { font-size: 15px; opacity: 0.82; margin-top: 2px; }
+    .btn-hdr {
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.35);
+      color: #fff;
+      font-size: 19px;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-hdr:active { opacity: 0.75; }
+
+    /* ── CONTENT ── */
+    .content { padding: 18px 15px 32px; flex: 1; overflow-y: auto; }
+
+    /* ── CARD ── */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 22px 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.09);
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #2e7d32;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── FORM FIELDS ── */
+    .field { margin-bottom: 22px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .lbl {
+      display: block;
+      font-size: 19px;
+      font-weight: 700;
+      color: #1b5e20;
+      margin-bottom: 9px;
+    }
+
+    .inp, .sel, .txt {
+      width: 100%;
+      font-size: 22px;
+      padding: 15px 17px;
+      border: 2.5px solid #a5d6a7;
+      border-radius: 14px;
+      background: #f9fbe7;
+      color: #1a1a1a;
+      -webkit-appearance: none;
+      appearance: none;
+      font-family: inherit;
+    }
+    .inp:focus, .sel:focus, .txt:focus {
+      outline: none;
+      border-color: #2e7d32;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(46,125,50,0.18);
+    }
+    .inp::placeholder, .txt::placeholder { color: #aaa; }
+    .txt { min-height: 96px; resize: vertical; }
+
+    .sel-wrap { position: relative; }
+    .sel-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 17px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #2e7d32;
+      font-size: 20px;
+      pointer-events: none;
+    }
+    .sel { padding-right: 46px; cursor: pointer; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: block;
+      width: 100%;
+      font-size: 22px;
+      font-weight: 800;
+      padding: 19px 16px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      text-align: center;
+      margin-bottom: 14px;
+      font-family: inherit;
+      transition: transform 0.08s, opacity 0.08s;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:active { transform: scale(0.97); opacity: 0.88; }
+
+    .btn-green  { background: #2e7d32; color: #fff; }
+    .btn-dgreen { background: #1b5e20; color: #fff; }
+    .btn-outline { background: #fff; color: #2e7d32; border: 2.5px solid #2e7d32; }
+    .btn-amber  { background: #e65100; color: #fff; }
+    .btn-blue   { background: #1565c0; color: #fff; }
+    .btn-red    { background: #b71c1c; color: #fff; }
+    .btn-gray   { background: #546e7a; color: #fff; }
+    .btn:disabled { background: #ccc !important; color: #888 !important; border: none; cursor: default; transform: none; }
+
+    /* ── LOGIN ── */
+    .hero {
+      background: linear-gradient(150deg, #1b5e20 0%, #388e3c 60%, #66bb6a 100%);
+      color: #fff;
+      text-align: center;
+      padding: 44px 24px 36px;
+    }
+    .hero-icon { font-size: 80px; line-height: 1; }
+    .hero h1 { font-size: 34px; font-weight: 900; margin-top: 14px; letter-spacing: -0.5px; }
+    .hero p { font-size: 19px; opacity: 0.88; margin-top: 8px; }
+
+    .u-chips { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    .u-chip {
+      padding: 16px 22px;
+      border: 3px solid #a5d6a7;
+      border-radius: 50px;
+      background: #e8f5e9;
+      font-size: 21px;
+      font-weight: 700;
+      color: #1b5e20;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .u-chip.active { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .u-chip:active { opacity: 0.8; }
+
+    .add-user-row { display: flex; gap: 10px; align-items: stretch; }
+    .add-user-row .inp { flex: 1; }
+    .btn-add {
+      padding: 14px 20px;
+      background: #2e7d32;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 28px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-add:active { opacity: 0.8; }
+
+    /* ── DATE BOX ── */
+    .date-box {
+      background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+      border: 2.5px solid #a5d6a7;
+      border-radius: 16px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .date-icon { font-size: 36px; line-height: 1; }
+    .date-big { font-size: 24px; font-weight: 800; color: #1b5e20; }
+    .date-day { font-size: 17px; color: #4caf50; margin-top: 3px; font-weight: 600; }
+
+    /* ── LOTE GRID ── */
+    .lote-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+    .lote-btn {
+      aspect-ratio: 1 / 1;
+      border: 2.5px solid #a5d6a7;
+      border-radius: 11px;
+      background: #f9fbe7;
+      font-size: 18px;
+      font-weight: 800;
+      color: #1b5e20;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      transition: background 0.12s;
+    }
+    .lote-btn.sel { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .lote-btn:active { opacity: 0.75; }
+
+    /* ── DIVIDER ── */
+    .divider { height: 2px; background: #e8f5e9; margin: 18px 0; border-radius: 2px; }
+
+    /* ── REVIEW ── */
+    .kg-hero {
+      background: linear-gradient(135deg, #1b5e20, #2e7d32);
+      border-radius: 18px;
+      padding: 22px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .kg-hero .kg-num { font-size: 52px; font-weight: 900; color: #fff; line-height: 1; }
+    .kg-hero .kg-lbl { font-size: 20px; color: rgba(255,255,255,0.8); margin-top: 6px; }
+    .kg-hero .kg-campo { font-size: 18px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+    .rev-list {}
+    .rev-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 13px 0;
+      border-bottom: 1px solid #f1f8e9;
+      font-size: 19px;
+      gap: 14px;
+    }
+    .rev-item:last-child { border-bottom: none; }
+    .rev-lbl { color: #777; flex-shrink: 0; max-width: 45%; }
+    .rev-val { font-weight: 700; color: #1b5e20; text-align: right; word-break: break-word; }
+
+    .btn-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── HISTORY TABS ── */
+    .tab-bar {
+      display: flex;
+      background: #fff;
+      border-bottom: 2px solid #e8f5e9;
+      position: sticky;
+      top: 60px;
+      z-index: 40;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 15px 8px;
+      border: none;
+      background: none;
+      font-size: 17px;
+      font-weight: 700;
+      color: #999;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-family: inherit;
+    }
+    .tab-btn.active { color: #2e7d32; border-bottom-color: #2e7d32; }
+
+    /* ── RECORD CARDS ── */
+    .rec-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 13px;
+      border-left: 6px solid #4caf50;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+    .rec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .rec-main { font-size: 22px; font-weight: 800; color: #1b5e20; }
+    .rec-sub { font-size: 16px; color: #777; margin-top: 4px; }
+    .rec-kg-big { font-size: 28px; font-weight: 900; color: #2e7d32; text-align: right; white-space: nowrap; }
+    .rec-kg-unit { font-size: 15px; color: #888; text-align: right; }
+    .rec-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    .badge {
+      display: inline-block;
+      padding: 5px 13px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .badge-green { background: #e8f5e9; color: #2e7d32; }
+    .badge-amber { background: #fff8e1; color: #e65100; }
+    .badge-blue  { background: #e3f2fd; color: #1565c0; }
+    .badge-gray  { background: #f5f5f5; color: #546e7a; }
+    .btn-del {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    /* ── SUMMARY TABLE ── */
+    .sum-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sum-table { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 380px; }
+    .sum-table th {
+      background: #e8f5e9;
+      color: #1b5e20;
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 2px solid #a5d6a7;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+    .sum-table td { padding: 10px 8px; border-bottom: 1px solid #f1f8e9; vertical-align: top; }
+    .sum-table tr:last-child td { border-bottom: none; }
+    .sum-table .kg-cell { font-weight: 800; color: #2e7d32; text-align: right; }
+    .sum-table th:last-child { text-align: right; }
+
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+    .stat-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px 12px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+    .stat-num { font-size: 30px; font-weight: 900; color: #2e7d32; }
+    .stat-lbl { font-size: 15px; color: #777; margin-top: 5px; }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: #aaa;
+    }
+    .empty-icon { font-size: 56px; }
+    .empty-txt { font-size: 20px; margin-top: 14px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #1b5e20;
+      color: #fff;
+      padding: 14px 26px;
+      border-radius: 50px;
+      font-size: 19px;
+      font-weight: 700;
+      z-index: 999;
+      opacity: 0;
+      white-space: nowrap;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── UTILS ── */
+    .hidden { display: none !important; }
+    .text-center { text-align: center; }
+    .text-muted { color: #888; }
+    .mt12 { margin-top: 12px; }
+    .mt18 { margin-top: 18px; }
+    .mb0 { margin-bottom: 0 !important; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════
+     PANTALLA 0 — LOGIN
+═══════════════════════════════════ -->
+<div id="s-login" class="screen active">
+  <div class="hero">
+    <div class="hero-icon">🌾</div>
+    <h1>Control de Cosecha</h1>
+    <p>Registro de kg cosechados por lote</p>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div class="card-title">👤 ¿Quién carga el registro?</div>
+      <div class="u-chips" id="user-chips"></div>
+      <div class="divider"></div>
+      <div class="field mb0">
+        <label class="lbl">➕ Agregar usuario nuevo</label>
+        <div class="add-user-row">
+          <input class="inp" type="text" id="new-user-inp" placeholder="Escribir nombre..."
+            maxlength="30" autocomplete="off"
+            onkeydown="if(event.key==='Enter') addUser()">
+          <button class="btn-add" onclick="addUser()">＋</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-dgreen" onclick="loginUser()">✅ Ingresar</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     PANTALLA 1 — FORMULARIO PRINCIPAL
+═══════════════════════════════════ -->
+<div id="s-form" class="screen">
+  <div class="hdr">
+    <button class="btn-hdr" onclick="showScreen('login')">✕ Salir</button>
+    <div class="hdr-info">
+      <div class="hdr-title">🌾 Nuevo Registro</div>
+      <div class="hdr-sub" id="hdr-user-form"></div>
+    </div>
+    <button class="btn-hdr" onclick="goToHistory()" title="Ver historial">📋</button>
+  </div>
+  <div class="content">
+
+    <!-- Fecha -->
+    <div class="card">
+      <div class="card-title">📅 Fecha del Registro</div>
+      <div class="date-box">
+        <div class="date-icon">📅</div>
+        <div>
+          <div class="date-big" id="f-fecha-display"></div>
+          <div class="date-day" id="f-fecha-dia"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Datos del cultivo -->
+    <div class="card">
+      <div class="card-title">🌱 Datos del Cultivo</div>
+
+      <!-- Campaña -->
+      <div class="field">
+        <label class="lbl" for="f-campana">🗓️ Campaña</label>
+        <input class="inp" type="text" id="f-campana" placeholder="Ej: 2025/2026" autocomplete="off">
+      </div>
+
+      <!-- Cultivo -->
+      <div class="field">
+        <label class="lbl" for="f-cultivo">🌱 Cultivo</label>
+        <div class="sel-wrap">
+          <select class="sel" id="f-cultivo">
+            <option value="">— Seleccionar cultivo —</option>
+            <option>Maíz</option>
+            <option>Soja</option>
+            <option>Trigo</option>
+            <option>Girasol</option>
+            <option>Sorgo</option>
+            <option>Cebada</option>
+            <option>Centeno</option>
+            <option>Avena</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Campo -->
+      <div class="field">
+        <label class="lbl" for="f-campo">🏡 Nombre del Campo</label>
+        <div class="sel-wrap">
+          <select class="sel" id="f-campo" onchange="toggleOtroCampo()">
+            <option value="">— Seleccionar campo —</option>
+            <option>Don Celestino</option>
+            <option>Tortone</option>
+            <option>Sitto</option>
+            <option>Manfrino</option>
+            <option>Boiero</option>
+            <option value="__otro__">Otro...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field hidden" id="otro-campo-wrap">
+        <label class="lbl" for="f-otro-campo">✏️ Nombre del campo (otro)</label>
+        <input class="inp" type="text" id="f-otro-campo" placeholder="Escribir nombre del campo..." autocomplete="off">
+      </div>
+
+      <!-- Lote -->
+      <div class="field">
+        <label class="lbl">🔢 Número de Lote <span id="lote-sel-label" style="color:#e65100;"></span></label>
+        <div class="lote-grid" id="lote-grid"></div>
+      </div>
+
+      <!-- Hectáreas -->
+      <div class="field">
+        <label class="lbl" for="f-has">📐 Hectáreas cosechadas</label>
+        <input class="inp" type="number" id="f-has" placeholder="Ej: 80" inputmode="decimal" step="0.1" min="0">
+      </div>
+
+      <!-- Kg -->
+      <div class="field">
+        <label class="lbl" for="f-kg">⚖️ Kg Cosechados</label>
+        <input class="inp" type="number" id="f-kg" placeholder="Ej: 45000" inputmode="numeric" min="0">
+      </div>
+
+      <!-- Destino -->
+      <div class="field">
+        <label class="lbl" for="f-destino">📦 Destino</label>
+        <div class="sel-wrap">
+          <select class="sel" id="f-destino" onchange="toggleOtroDestino()">
+            <option value="">— Seleccionar destino —</option>
+            <option>Silo Bolsa</option>
+            <option>Silo Chapa</option>
+            <option>Camión</option>
+            <option value="__otro__">Otro...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field hidden mb0" id="otro-destino-wrap">
+        <label class="lbl" for="f-otro-destino">✏️ Especificar destino (otro)</label>
+        <input class="inp" type="text" id="f-otro-destino" placeholder="Describir el destino..." autocomplete="off">
+      </div>
+    </div>
+
+    <button class="btn btn-green" onclick="goToDestino()">Continuar →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     PANTALLA 2 — DETALLES DE DESTINO
+═══════════════════════════════════ -->
+<div id="s-destino" class="screen">
+  <div class="hdr">
+    <button class="btn-hdr" onclick="showScreen('form')">← Volver</button>
+    <div class="hdr-info">
+      <div class="hdr-title" id="destino-hdr-title">Detalles</div>
+      <div class="hdr-sub" id="hdr-user-dest"></div>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- CAMIÓN -->
+    <div id="form-camion" class="hidden">
+      <div class="card">
+        <div class="card-title">🚛 Datos del Camión</div>
+        <div class="field">
+          <label class="lbl" for="d-transporte">🏢 Transporte</label>
+          <input class="inp" type="text" id="d-transporte" placeholder="Nombre de la empresa..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="d-patente">🚗 Patente del Camión</label>
+          <input class="inp" type="text" id="d-patente" placeholder="Ej: ABC 123" autocomplete="off"
+            oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="field">
+          <label class="lbl" for="d-chofer">👨 Chofer</label>
+          <input class="inp" type="text" id="d-chofer" placeholder="Nombre del chofer..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="d-dest-camion">📍 Destino del Camión</label>
+          <input class="inp" type="text" id="d-dest-camion" placeholder="Ej: Puerto Rosario, Acopio..." autocomplete="off">
+        </div>
+        <div class="field mb0">
+          <label class="lbl" for="d-obs-camion">📝 Observaciones</label>
+          <textarea class="txt" id="d-obs-camion" placeholder="Observaciones adicionales..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- SILO BOLSA -->
+    <div id="form-silo-bolsa" class="hidden">
+      <div class="card">
+        <div class="card-title">🛍️ Datos del Silo Bolsa</div>
+        <div class="field">
+          <label class="lbl" for="d-num-bolsa">🔢 N° de Bolsa</label>
+          <input class="inp" type="text" id="d-num-bolsa" placeholder="Número de bolsa..." inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="d-lote-bolsa">🔢 Lote donde se confeccionó</label>
+          <div class="sel-wrap">
+            <select class="sel" id="d-lote-bolsa">
+              <option value="">— Seleccionar lote —</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="d-campo-bolsa">🏡 Campo donde se confeccionó</label>
+          <div class="sel-wrap">
+            <select class="sel" id="d-campo-bolsa">
+              <option value="">— Seleccionar campo —</option>
+              <option>Don Celestino</option>
+              <option>Tortone</option>
+              <option>Sitto</option>
+              <option>Manfrino</option>
+              <option>Boiero</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="field mb0">
+          <label class="lbl" for="d-obs-bolsa">📝 Observaciones</label>
+          <textarea class="txt" id="d-obs-bolsa" placeholder="Observaciones adicionales..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- SILO CHAPA -->
+    <div id="form-silo-chapa" class="hidden">
+      <div class="card">
+        <div class="card-title">🏗️ Datos del Silo Chapa</div>
+        <div class="field">
+          <label class="lbl" for="d-num-silo">🔢 N° de Silo</label>
+          <input class="inp" type="text" id="d-num-silo" placeholder="Número de silo..." inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="field mb0">
+          <label class="lbl" for="d-obs-silo">📝 Observaciones</label>
+          <textarea class="txt" id="d-obs-silo" placeholder="Observaciones adicionales..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- OTRO DESTINO -->
+    <div id="form-otro-dest" class="hidden">
+      <div class="card">
+        <div class="card-title">📝 Observaciones</div>
+        <div class="field mb0">
+          <label class="lbl" for="d-obs-otro">Observaciones</label>
+          <textarea class="txt" id="d-obs-otro" placeholder="Agregar observaciones o aclaraciones..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-amber" onclick="goToReview()">✓ Listo — Ver Resumen</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     PANTALLA 3 — REVISIÓN / CONFIRMACIÓN
+═══════════════════════════════════ -->
+<div id="s-review" class="screen">
+  <div class="hdr">
+    <button class="btn-hdr" onclick="showScreen('form')">← Volver</button>
+    <div class="hdr-info">
+      <div class="hdr-title">✅ Confirmar Registro</div>
+      <div class="hdr-sub" id="hdr-user-rev"></div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div id="review-content"></div>
+    </div>
+    <div class="btn-row-2">
+      <button class="btn btn-outline mb0" onclick="backFromReview()">← Corregir</button>
+      <button class="btn btn-dgreen mb0" onclick="saveRecord()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     PANTALLA 4 — HISTORIAL
+═══════════════════════════════════ -->
+<div id="s-history" class="screen">
+  <div class="hdr">
+    <button class="btn-hdr" onclick="showScreen('form')">← Volver</button>
+    <div class="hdr-info">
+      <div class="hdr-title">📋 Registros</div>
+      <div class="hdr-sub" id="hdr-user-hist"></div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-btn-lista"   onclick="showTab('lista')">Lista</button>
+    <button class="tab-btn"        id="tab-btn-resumen" onclick="showTab('resumen')">Resumen</button>
+    <button class="tab-btn"        id="tab-btn-exportar" onclick="showTab('exportar')">Exportar</button>
+  </div>
+
+  <div class="content" style="padding-top:14px;">
+
+    <!-- TAB LISTA -->
+    <div id="tab-lista">
+      <div id="stats-row" class="stats-grid"></div>
+      <div id="records-list"></div>
+    </div>
+
+    <!-- TAB RESUMEN -->
+    <div id="tab-resumen" class="hidden">
+      <div class="card">
+        <div class="card-title">📊 Totales por Lote y Cultivo</div>
+        <div class="sum-wrap" id="summary-wrap"></div>
+      </div>
+    </div>
+
+    <!-- TAB EXPORTAR -->
+    <div id="tab-exportar" class="hidden">
+
+      <!-- Google Sheets sync -->
+      <div class="card">
+        <div class="card-title">📊 Sincronizar con Google Sheets</div>
+        <p style="font-size:17px;color:#555;margin-bottom:18px;line-height:1.6;">
+          Pegá acá la URL del Web App de Google Apps Script. Cada registro nuevo se enviará automáticamente a tu planilla.
+        </p>
+        <div class="field">
+          <label class="lbl" for="gs-url-inp">🔗 URL del Web App</label>
+          <input class="inp" type="url" id="gs-url-inp"
+            placeholder="https://script.google.com/macros/s/..."
+            style="font-size:16px;"
+            oninput="saveGsUrl(this.value)">
+        </div>
+        <div id="gs-status" style="font-size:17px;color:#555;min-height:24px;margin-bottom:12px;"></div>
+        <button class="btn btn-green mb0" onclick="testGsConnection()">🔌 Probar conexión</button>
+      </div>
+
+      <!-- Excel -->
+      <div class="card">
+        <div class="card-title">📥 Exportar a Excel</div>
+        <p style="font-size:18px;color:#555;margin-bottom:22px;line-height:1.6;">
+          Descargá todos los registros como archivo <strong>.xlsx</strong> con dos hojas: todos los registros y un resumen de totales por lote.
+        </p>
+        <button class="btn btn-blue" onclick="exportExcel()">📊 Descargar Excel</button>
+      </div>
+
+      <!-- Borrar datos -->
+      <div class="card">
+        <div class="card-title">⚠️ Borrar datos</div>
+        <p style="font-size:17px;color:#555;margin-bottom:18px;line-height:1.6;">
+          Los datos se guardan en este dispositivo. Al borrar no se pueden recuperar.
+        </p>
+        <button class="btn btn-red mb0" onclick="confirmClearData()">🗑️ Borrar todos los registros</button>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════
+const app = {
+  user: '',
+  users: JSON.parse(localStorage.getItem('ch_users') || '[]'),
+  records: JSON.parse(localStorage.getItem('ch_records') || '[]'),
+  selectedLote: null,
+  form: {},          // datos del formulario principal
+  activeTab: 'lista',
+};
+
+// Usuarios por defecto si no hay ninguno
+if (!app.users.length) {
+  app.users = ['Juan','María','Pedro'];
+  saveUsers();
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+(function init() {
+  renderUserChips();
+  buildLoteGrid();
+  buildLoteBolsaOptions();
+  setDateDisplay();
+})();
+
+// ══════════════════════════════════════════
+// PANTALLAS
+// ══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-' + id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function goToHistory() {
+  document.getElementById('hdr-user-hist').textContent = '👤 ' + app.user;
+  renderHistory();
+  renderSummary();
+  initGsUrl();
+  showScreen('history');
+}
+
+// ══════════════════════════════════════════
+// FECHA
+// ══════════════════════════════════════════
+const DIAS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MESES  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+
+function formatFecha(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} de ${MESES[m-1]} de ${y}`;
+}
+
+function formatFechaDia(iso) {
+  // construir fecha local sin conversión TZ
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m-1, d);
+  return DIAS[date.getDay()];
+}
+
+function setDateDisplay() {
+  const iso = todayISO();
+  document.getElementById('f-fecha-display').textContent = formatFecha(iso);
+  document.getElementById('f-fecha-dia').textContent     = formatFechaDia(iso);
+}
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+function renderUserChips() {
+  const c = document.getElementById('user-chips');
+  if (!app.users.length) {
+    c.innerHTML = '<p style="color:#aaa;font-size:18px;">Aún no hay usuarios. Agregá uno abajo.</p>';
+    return;
+  }
+  c.innerHTML = app.users.map(u =>
+    `<div class="u-chip${u === app.user ? ' active' : ''}" onclick="selectUser('${esc(u)}')">${esc(u)}</div>`
+  ).join('');
+}
+
+function selectUser(name) {
+  app.user = name;
+  renderUserChips();
+}
+
+function addUser() {
+  const inp  = document.getElementById('new-user-inp');
+  const name = inp.value.trim();
+  if (!name) { showToast('Escribí un nombre'); return; }
+  if (app.users.includes(name)) { showToast('Ese usuario ya existe'); return; }
+  app.users.push(name);
+  saveUsers();
+  app.user = name;
+  inp.value = '';
+  renderUserChips();
+  showToast('✅ Usuario agregado');
+}
+
+function loginUser() {
+  if (!app.user) { showToast('Seleccioná tu nombre primero'); return; }
+  const u = '👤 ' + app.user;
+  document.getElementById('hdr-user-form').textContent = u;
+  document.getElementById('hdr-user-dest').textContent = u;
+  document.getElementById('hdr-user-rev').textContent  = u;
+  resetForm();
+  showScreen('form');
+}
+
+// ══════════════════════════════════════════
+// FORMULARIO PRINCIPAL
+// ══════════════════════════════════════════
+function resetForm() {
+  app.selectedLote = null;
+  app.form = {};
+  setDateDisplay();
+
+  const ids = ['f-campana','f-cultivo','f-campo','f-otro-campo','f-has','f-kg','f-destino','f-otro-destino'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+  document.getElementById('otro-campo-wrap').classList.add('hidden');
+  document.getElementById('otro-destino-wrap').classList.add('hidden');
+  document.getElementById('lote-sel-label').textContent = '';
+
+  document.querySelectorAll('.lote-btn').forEach(b => b.classList.remove('sel'));
+
+  const destIds = ['d-transporte','d-patente','d-chofer','d-dest-camion','d-obs-camion',
+                   'd-num-bolsa','d-lote-bolsa','d-campo-bolsa','d-obs-bolsa',
+                   'd-num-silo','d-obs-silo','d-obs-otro'];
+  destIds.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+function buildLoteGrid() {
+  const grid = document.getElementById('lote-grid');
+  for (let i = 1; i <= 30; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'lote-btn';
+    btn.textContent = i;
+    btn.dataset.lote = i;
+    btn.type = 'button';
+    btn.onclick = () => selectLote(i, btn);
+    grid.appendChild(btn);
+  }
+}
+
+function selectLote(num, btn) {
+  app.selectedLote = num;
+  document.querySelectorAll('.lote-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('lote-sel-label').textContent = '→ Lote ' + num + ' seleccionado';
+}
+
+function buildLoteBolsaOptions() {
+  const sel = document.getElementById('d-lote-bolsa');
+  for (let i = 1; i <= 30; i++) {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = 'Lote ' + i;
+    sel.appendChild(o);
+  }
+}
+
+function toggleOtroCampo() {
+  const val = document.getElementById('f-campo').value;
+  document.getElementById('otro-campo-wrap').classList.toggle('hidden', val !== '__otro__');
+}
+
+function toggleOtroDestino() {
+  const val = document.getElementById('f-destino').value;
+  document.getElementById('otro-destino-wrap').classList.toggle('hidden', val !== '__otro__');
+}
+
+function getCampoValue() {
+  const sel = document.getElementById('f-campo').value;
+  if (sel === '__otro__') return document.getElementById('f-otro-campo').value.trim();
+  return sel;
+}
+
+function getDestinoValue() {
+  const sel = document.getElementById('f-destino').value;
+  if (sel === '__otro__') return document.getElementById('f-otro-destino').value.trim();
+  return sel;
+}
+
+function goToDestino() {
+  // Validaciones
+  const campana = document.getElementById('f-campana').value.trim();
+  const cultivo = document.getElementById('f-cultivo').value;
+  const campoSel = document.getElementById('f-campo').value;
+  const otroCampo = document.getElementById('f-otro-campo').value.trim();
+  const kg = document.getElementById('f-kg').value;
+  const destinoSel = document.getElementById('f-destino').value;
+  const otroDestino = document.getElementById('f-otro-destino').value.trim();
+
+  if (!campana) { showToast('⚠️ Ingresá la Campaña'); return; }
+  if (!cultivo) { showToast('⚠️ Seleccioná el Cultivo'); return; }
+  if (!campoSel) { showToast('⚠️ Seleccioná el Campo'); return; }
+  if (campoSel === '__otro__' && !otroCampo) { showToast('⚠️ Escribí el nombre del campo'); return; }
+  if (!app.selectedLote) { showToast('⚠️ Seleccioná el Número de Lote'); return; }
+  if (!kg || parseFloat(kg) <= 0) { showToast('⚠️ Ingresá los Kg cosechados'); return; }
+  if (!destinoSel) { showToast('⚠️ Seleccioná el Destino'); return; }
+  if (destinoSel === '__otro__' && !otroDestino) { showToast('⚠️ Escribí el destino'); return; }
+
+  // Guardar datos del paso 1
+  app.form = {
+    fechaISO:    todayISO(),
+    fechaTexto:  formatFecha(todayISO()),
+    usuario:     app.user,
+    campana,
+    cultivo,
+    campo:       getCampoValue(),
+    lote:        app.selectedLote,
+    hectareas:   document.getElementById('f-has').value || '',
+    kg:          parseFloat(kg),
+    destino:     getDestinoValue(),
+    destinoTipo: destinoSel === '__otro__' ? '__otro__' : destinoSel,
+  };
+
+  // Mostrar formulario del destino correcto
+  ['form-camion','form-silo-bolsa','form-silo-chapa','form-otro-dest']
+    .forEach(id => document.getElementById(id).classList.add('hidden'));
+
+  const titulos = {
+    'Camión':     '🚛 Datos del Camión',
+    'Silo Bolsa': '🛍️ Datos del Silo Bolsa',
+    'Silo Chapa': '🏗️ Datos del Silo Chapa',
+    '__otro__':   '📝 Observaciones',
+  };
+
+  const formMap = {
+    'Camión':     'form-camion',
+    'Silo Bolsa': 'form-silo-bolsa',
+    'Silo Chapa': 'form-silo-chapa',
+    '__otro__':   'form-otro-dest',
+  };
+
+  document.getElementById(formMap[app.form.destinoTipo]).classList.remove('hidden');
+  document.getElementById('destino-hdr-title').textContent = titulos[app.form.destinoTipo];
+
+  showScreen('destino');
+}
+
+function goToReview() {
+  const tipo = app.form.destinoTipo;
+
+  if (tipo === 'Camión') {
+    app.form.transporte    = document.getElementById('d-transporte').value.trim();
+    app.form.patente       = document.getElementById('d-patente').value.trim().toUpperCase();
+    app.form.chofer        = document.getElementById('d-chofer').value.trim();
+    app.form.destinoCamion = document.getElementById('d-dest-camion').value.trim();
+    app.form.observaciones = document.getElementById('d-obs-camion').value.trim();
+  } else if (tipo === 'Silo Bolsa') {
+    app.form.numeroBolsa   = document.getElementById('d-num-bolsa').value.trim();
+    app.form.loteBolsa     = document.getElementById('d-lote-bolsa').value;
+    app.form.campoBolsa    = document.getElementById('d-campo-bolsa').value;
+    app.form.observaciones = document.getElementById('d-obs-bolsa').value.trim();
+  } else if (tipo === 'Silo Chapa') {
+    app.form.numeroSilo    = document.getElementById('d-num-silo').value.trim();
+    app.form.observaciones = document.getElementById('d-obs-silo').value.trim();
+  } else {
+    app.form.observaciones = document.getElementById('d-obs-otro').value.trim();
+  }
+
+  renderReview();
+  showScreen('review');
+}
+
+function backFromReview() {
+  const tipo = app.form.destinoTipo;
+  if (tipo) {
+    showScreen('destino');
+  } else {
+    showScreen('form');
+  }
+}
+
+// ══════════════════════════════════════════
+// REVISIÓN
+// ══════════════════════════════════════════
+function renderReview() {
+  const f    = app.form;
+  const tipo = f.destinoTipo;
+
+  const rows = [];
+  const add = (lbl, val) => { if (val) rows.push([lbl, val]); };
+
+  add('📅 Fecha',          f.fechaTexto);
+  add('👤 Usuario',        f.usuario);
+  add('🗓️ Campaña',       f.campana);
+  add('🌱 Cultivo',        f.cultivo);
+  add('🏡 Campo',          f.campo);
+  add('🔢 Lote',           'N° ' + f.lote);
+  add('📐 Hectáreas',      f.hectareas ? f.hectareas + ' ha' : '');
+  add('📦 Destino',        f.destino);
+
+  if (tipo === 'Camión') {
+    add('🏢 Transporte',     f.transporte);
+    add('🚗 Patente',        f.patente);
+    add('👨 Chofer',         f.chofer);
+    add('📍 Dest. camión',   f.destinoCamion);
+  } else if (tipo === 'Silo Bolsa') {
+    add('🔢 N° Bolsa',       f.numeroBolsa);
+    add('🔢 Lote bolsa',     f.loteBolsa ? 'Lote ' + f.loteBolsa : '');
+    add('🏡 Campo bolsa',    f.campoBolsa);
+  } else if (tipo === 'Silo Chapa') {
+    add('🔢 N° Silo',        f.numeroSilo);
+  }
+
+  add('📝 Observaciones', f.observaciones);
+
+  const rowsHTML = rows.map(([lbl, val]) => `
+    <div class="rev-item">
+      <span class="rev-lbl">${lbl}</span>
+      <span class="rev-val">${esc(String(val))}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('review-content').innerHTML = `
+    <div class="kg-hero">
+      <div class="kg-num">${fmtNum(f.kg)}</div>
+      <div class="kg-lbl">kg cosechados</div>
+      <div class="kg-campo">${esc(f.cultivo)} — ${esc(f.campo)} · Lote ${f.lote}</div>
+    </div>
+    <div class="card-title">📋 Detalle del Registro</div>
+    <div class="rev-list">${rowsHTML}</div>
+  `;
+}
+
+// ══════════════════════════════════════════
+// GUARDAR
+// ══════════════════════════════════════════
+function saveRecord() {
+  const record = { ...app.form, id: Date.now() };
+  app.records.push(record);
+  saveRecords();
+  syncToSheets(record); // enviar a Google Sheets en segundo plano
+  showToast('✅ Registro guardado exitosamente');
+  setTimeout(() => {
+    resetForm();
+    showScreen('form');
+  }, 1400);
+}
+
+// ══════════════════════════════════════════
+// HISTORIAL
+// ══════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('records-list');
+
+  if (!app.records.length) {
+    document.getElementById('stats-row').innerHTML = '';
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">📭</div>
+      <div class="empty-txt">No hay registros aún.<br>¡Cargá el primero!</div>
+    </div>`;
+    return;
+  }
+
+  // Stats
+  const totalKg = app.records.reduce((s, r) => s + (r.kg || 0), 0);
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-num">${app.records.length}</div>
+      <div class="stat-lbl">Registros cargados</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">${fmtNum(totalKg)}</div>
+      <div class="stat-lbl">kg totales</div>
+    </div>
+  `;
+
+  // Lista (más reciente primero)
+  const sorted = [...app.records].sort((a,b) => b.id - a.id);
+
+  list.innerHTML = sorted.map(r => {
+    const badge = destinoBadge(r.destino || '');
+    return `<div class="rec-card">
+      <div class="rec-top">
+        <div style="flex:1;min-width:0;">
+          <div class="rec-sub">${esc(r.fechaTexto || r.fechaISO || '')} · ${esc(r.usuario || '')}</div>
+          <div class="rec-main">${esc(r.cultivo || '')} — ${esc(r.campo || '')}</div>
+          <div class="rec-sub">Lote ${r.lote} · Campaña ${esc(r.campana || '')}</div>
+        </div>
+        <div>
+          <div class="rec-kg-big">${fmtNum(r.kg)}</div>
+          <div class="rec-kg-unit">kg</div>
+        </div>
+      </div>
+      <div class="rec-footer">
+        <span class="${badge.cls}">${badge.txt}</span>
+        <button class="btn-del" onclick="deleteRecord(${r.id})" title="Borrar registro">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function destinoBadge(destino) {
+  if (destino.includes('Camión'))    return { cls: 'badge badge-blue',  txt: '🚛 Camión' };
+  if (destino.includes('Silo Bolsa')) return { cls: 'badge badge-amber', txt: '🛍️ Silo Bolsa' };
+  if (destino.includes('Silo Chapa')) return { cls: 'badge badge-green', txt: '🏗️ Silo Chapa' };
+  return { cls: 'badge badge-gray', txt: '📦 ' + (destino || '—') };
+}
+
+function deleteRecord(id) {
+  if (!confirm('¿Borrar este registro?')) return;
+  app.records = app.records.filter(r => r.id !== id);
+  saveRecords();
+  renderHistory();
+  renderSummary();
+  showToast('Registro eliminado');
+}
+
+function confirmClearData() {
+  if (!confirm('⚠️ ¿Borrar TODOS los registros? Esta acción no se puede deshacer.')) return;
+  app.records = [];
+  saveRecords();
+  renderHistory();
+  renderSummary();
+  showToast('Todos los registros fueron borrados');
+}
+
+// ══════════════════════════════════════════
+// RESUMEN
+// ══════════════════════════════════════════
+function renderSummary() {
+  const wrap = document.getElementById('summary-wrap');
+
+  if (!app.records.length) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:40px;">📊</div><div class="empty-txt">Sin datos</div></div>';
+    return;
+  }
+
+  // Agrupar por campaña + cultivo + campo + lote
+  const groups = {};
+  app.records.forEach(r => {
+    const key = [r.campana, r.cultivo, r.campo, r.lote].join('||');
+    if (!groups[key]) {
+      groups[key] = { campana: r.campana, cultivo: r.cultivo, campo: r.campo, lote: r.lote, totalKg: 0, cant: 0 };
+    }
+    groups[key].totalKg += r.kg || 0;
+    groups[key].cant++;
+  });
+
+  const rows = Object.values(groups).sort((a, b) => {
+    if (a.campana !== b.campana) return (b.campana || '').localeCompare(a.campana || '');
+    if (a.campo   !== b.campo)   return (a.campo   || '').localeCompare(b.campo   || '');
+    return (a.lote || 0) - (b.lote || 0);
+  });
+
+  wrap.innerHTML = `
+    <table class="sum-table">
+      <thead>
+        <tr>
+          <th>Campaña</th>
+          <th>Cultivo</th>
+          <th>Campo</th>
+          <th>Lote</th>
+          <th>Total kg</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td>${esc(r.campana||'')}</td>
+          <td>${esc(r.cultivo||'')}</td>
+          <td>${esc(r.campo||'')}</td>
+          <td style="text-align:center;">${r.lote}</td>
+          <td class="kg-cell">${fmtNum(r.totalKg)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ══════════════════════════════════════════
+// EXPORTAR EXCEL
+// ══════════════════════════════════════════
+function exportExcel() {
+  if (!app.records.length) { showToast('No hay registros para exportar'); return; }
+  if (typeof XLSX === 'undefined') { showToast('Error: librería XLSX no disponible'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // ── HOJA 1: Todos los registros ──
+  const hdrs = [
+    'ID','Fecha','Usuario','Campaña','Cultivo','Campo','Lote','Hectáreas','Kg Cosechados','Destino',
+    'Transporte','Patente Camión','Chofer','Destino Camión',
+    'N° Bolsa','Lote Bolsa','Campo Bolsa',
+    'N° Silo','Observaciones'
+  ];
+
+  const dataRows = app.records.map(r => [
+    r.id,
+    r.fechaTexto || r.fechaISO || '',
+    r.usuario    || '',
+    r.campana    || '',
+    r.cultivo    || '',
+    r.campo      || '',
+    r.lote       || '',
+    r.hectareas  || '',
+    r.kg         || 0,
+    r.destino    || '',
+    r.transporte    || '',
+    r.patente       || '',
+    r.chofer        || '',
+    r.destinoCamion || '',
+    r.numeroBolsa   || '',
+    r.loteBolsa     || '',
+    r.campoBolsa    || '',
+    r.numeroSilo    || '',
+    r.observaciones || '',
+  ]);
+
+  const ws1 = XLSX.utils.aoa_to_sheet([hdrs, ...dataRows]);
+  ws1['!cols'] = [6,13,12,12,10,16,6,10,14,12,16,12,16,18,10,10,16,8,24]
+    .map(w => ({ wch: w }));
+
+  XLSX.utils.book_append_sheet(wb, ws1, 'Registros');
+
+  // ── HOJA 2: Resumen por Lote ──
+  const groups = {};
+  app.records.forEach(r => {
+    const key = [r.campana, r.cultivo, r.campo, r.lote].join('|');
+    if (!groups[key]) {
+      groups[key] = { Campaña: r.campana||'', Cultivo: r.cultivo||'', Campo: r.campo||'', Lote: r.lote||'', 'Total Kg': 0, 'Cantidad Registros': 0 };
+    }
+    groups[key]['Total Kg'] += r.kg || 0;
+    groups[key]['Cantidad Registros']++;
+  });
+
+  const sumHdrs = ['Campaña','Cultivo','Campo','Lote','Total Kg','Cantidad Registros'];
+  const sumRows = Object.values(groups)
+    .sort((a,b) => {
+      if (a.Campaña !== b.Campaña) return b.Campaña.localeCompare(a.Campaña);
+      if (a.Campo   !== b.Campo)   return a.Campo.localeCompare(b.Campo);
+      return (a.Lote||0) - (b.Lote||0);
+    })
+    .map(r => sumHdrs.map(h => r[h]));
+
+  const ws2 = XLSX.utils.aoa_to_sheet([sumHdrs, ...sumRows]);
+  ws2['!cols'] = [12,10,16,6,14,16].map(w => ({ wch: w }));
+
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumen por Lote');
+
+  const fileName = `ControlCosecha_${todayISO().replace(/-/g,'')}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast('📊 Descargando ' + fileName);
+}
+
+// ══════════════════════════════════════════
+// TABS (HISTORIAL)
+// ══════════════════════════════════════════
+function showTab(tab) {
+  ['lista','resumen','exportar'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+  });
+  app.activeTab = tab;
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ══════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ══════════════════════════════════════════
+const GS_KEY = 'ch_gs_url';
+
+function getGsUrl() { return localStorage.getItem(GS_KEY) || ''; }
+function saveGsUrl(url) {
+  localStorage.setItem(GS_KEY, url.trim());
+  document.getElementById('gs-status').textContent = url.trim() ? '✅ URL guardada' : '';
+}
+
+async function syncToSheets(record) {
+  const url = getGsUrl();
+  if (!url) return;
+  try {
+    // no-cors con application/x-www-form-urlencoded evita el preflight
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(JSON.stringify(record))
+    });
+  } catch(e) {
+    console.warn('Sheets sync error:', e);
+  }
+}
+
+async function testGsConnection() {
+  const url = getGsUrl();
+  const el  = document.getElementById('gs-status');
+  if (!url) { el.textContent = '⚠️ Primero ingresá la URL'; el.style.color = '#e65100'; return; }
+  el.textContent = '⏳ Probando...'; el.style.color = '#555';
+  try {
+    await fetch(url, { method: 'GET', mode: 'no-cors' });
+    el.textContent = '✅ Conexión OK — el Web App responde correctamente'; el.style.color = '#2e7d32';
+  } catch(e) {
+    el.textContent = '❌ Error: ' + e.message; el.style.color = '#b71c1c';
+  }
+}
+
+function initGsUrl() {
+  const inp = document.getElementById('gs-url-inp');
+  if (inp) { inp.value = getGsUrl(); }
+}
+
+// ══════════════════════════════════════════
+// PERSISTENCIA
+// ══════════════════════════════════════════
+function saveUsers()   { localStorage.setItem('ch_users',   JSON.stringify(app.users));   }
+function saveRecords() { localStorage.setItem('ch_records', JSON.stringify(app.records)); }
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function fmtNum(n) {
+  if (n == null || n === '') return '—';
+  return Number(n).toLocaleString('es-AR');
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
