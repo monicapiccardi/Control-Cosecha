@@ -768,6 +768,12 @@ if (!app.users.length) {
 }
 
 // ══════════════════════════════════════════
+// FECHA (constantes antes del INIT)
+// ══════════════════════════════════════════
+const DIAS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MESES  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 (function init() {
@@ -797,9 +803,6 @@ function goToHistory() {
 // ══════════════════════════════════════════
 // FECHA
 // ══════════════════════════════════════════
-const DIAS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-const MESES  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-
 function todayISO() {
   const d = new Date();
   return d.toISOString().split('T')[0];
