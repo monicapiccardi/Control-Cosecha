@@ -1331,8 +1331,9 @@ function showToast(msg) {
 // GOOGLE SHEETS SYNC
 // ══════════════════════════════════════════
 const GS_KEY = 'ch_gs_url';
+const GS_DEFAULT = 'https://script.google.com/macros/s/AKfycbwm0E5i1rn5aUQrDn6hzu0e4wtae2zGXU6SpwJ16fX09yA92coSjNW5H7yA7foLZ53oLA/exec';
 
-function getGsUrl() { return localStorage.getItem(GS_KEY) || ''; }
+function getGsUrl() { return localStorage.getItem(GS_KEY) || GS_DEFAULT; }
 function saveGsUrl(url) {
   localStorage.setItem(GS_KEY, url.trim());
   document.getElementById('gs-status').textContent = url.trim() ? '✅ URL guardada' : '';
@@ -1370,6 +1371,10 @@ async function testGsConnection() {
 function initGsUrl() {
   const inp = document.getElementById('gs-url-inp');
   if (inp) { inp.value = getGsUrl(); }
+  // Pre-cargar la URL por defecto en localStorage si no hay ninguna guardada
+  if (!localStorage.getItem(GS_KEY)) {
+    localStorage.setItem(GS_KEY, GS_DEFAULT);
+  }
 }
 
 // ══════════════════════════════════════════
